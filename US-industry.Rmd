@@ -1,0 +1,409 @@
+---
+title: "Thesis"
+author: "Robin Wang"
+date: "February 1, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+Import penetration ratio data from Schott
+```{r}
+setwd("C://Users/admin/OneDrive/R")
+library("foreign")
+pene <- read.dta("lwc5_89_107_naics_20110303.dta")
+library(plyr)
+pene<-rename(pene, c("naics6"="naics"))
+gdp<-read.csv("C://Users/admin/OneDrive/R/USGDPGrowth.csv")
+gdp<-gdp[which(gdp$year>=1979&gdp$year<=2015),]
+```
+
+Industry Characteristics
+```{r}
+naics<-read.csv("naics5809.csv")
+##merge naics with penetration
+naics<-merge(naics, pene, by=c("naics","year"))
+naics$pen5<-naics$m5/(naics$vship.x+naics$m-naics$x)
+
+library("plyr")
+##given that pene does not have data on 2007, I lag pen5 for 2 years
+naics<- ddply(naics, .(naics), transform, pen5_lag =
+                        c(NA, pen5[-length(pen5)]
+                          )
+                        )
+naics<- ddply(naics, .(naics), transform, pen5_lag2 =
+                        c(NA, pen5_lag[-length(pen5_lag)]
+                          )
+                        )
+naics<- ddply(naics, .(naics), transform, pen5_lag3 =
+                        c(NA, pen5_lag2[-length(pen5_lag2)]
+                          )
+                        )
+naics<- ddply(naics, .(naics), transform, pen5_lag4 =
+                        c(NA, pen5_lag3[-length(pen5_lag3)]
+                          )
+                        )
+naics<- ddply(naics, .(naics), transform, pen5_lag5 =
+                        c(NA, pen5_lag4[-length(pen5_lag4)]
+                          )
+                        )
+
+naics<- ddply(naics, .(naics), transform, x_lag =
+                        c(NA, x[-length(x)]
+                          )
+                        )
+naics<- ddply(naics, .(naics), transform, x_lag2 =
+                        c(NA, x_lag[-length(x_lag)]
+                          )
+                        )
+naics<- ddply(naics, .(naics), transform, vship_lag =
+                        c(NA, vship.x[-length(vship.x)]
+                          )
+                        )
+naics<- ddply(naics, .(naics), transform, vship_lag2 =
+                        c(NA, vship_lag[-length(vship_lag)]
+                          )
+                        )
+naics$vship_pc<-(naics$vship.x-naics$vship_lag)/naics$vship_lag
+naics$vship_pc_lag<-(naics$vship_lag-naics$vship_lag2)/naics$vship_lag2
+naics$dm<-naics$vship.x+naics$m-naics$x
+naics<- ddply(naics, .(naics), transform, dm_lag =
+                        c(NA, dm[-length(dm)]
+                          )
+                        )
+naics$dm_pc<-(naics$dm-naics$dm_lag)/naics$dm_lag
+naics<- ddply(naics, .(naics), transform, dm_pc_lag =
+                        c(NA, dm[-length(dm_pc)]
+                          )
+                        )
+
+naics<- ddply(naics, .(naics), transform,m_lag =
+                        c(NA, m[-length(m)]
+                          )
+                        )
+naics$m_pc<-(naics$m - naics$m_lag)/naics$m_lag
+naics<- ddply(naics, .(naics), transform, m_pc_lag =
+                        c(NA, m_pc[-length(m_pc)]
+                          )
+                        )
+##percentage change in export 
+naics$x_pc<-(naics$x-naics$x_lag)/naics$x_lag
+naics<- ddply(naics, .(naics), transform, x_pc_lag =
+                        c(NA, x_pc[-length(x_pc)]
+                          )
+                        )
+naics<- ddply(naics, .(naics), transform, x_pc_lag2 =
+                        c(NA, x_pc_lag[-length(x_pc_lag)]
+                          )
+                        )
+naics<- ddply(naics, .(naics), transform, x_pc_lag3 =
+                        c(NA, x_pc_lag2[-length(x_pc_lag2)]
+                          )
+                        )
+##given that pene does not have data on 2007, I lag m5 for 2 years
+naics<- ddply(naics, .(naics), transform, m5_lag =
+                        c(NA, m5[-length(m5)]
+                          )
+                        )
+naics<- ddply(naics, .(naics), transform, m5_lag2 =
+                        c(NA, m5_lag[-length(m5_lag)]
+                          )
+                        )
+
+#industry level intra-firm trade proxy m-m5
+naics$m0<-naics$m-naics$m5
+naics<- ddply(naics, .(naics), transform, m0_lag =
+                        c(NA, m0[-length(m0)]
+                          )
+                        )
+
+#add productivity which is (value added per employee)/1000
+naics$prod<-(naics$vadd*1000/naics$emp)/1000
+naics$cap=naics$cap/1000
+naics <- ddply(naics, .(naics), transform, prod_lag =
+                        c(NA, prod[-length(prod)]
+                          )
+                        )
+naics <- ddply(naics, .(naics), transform, prod_lag2 =
+                        c(NA, prod_lag[-length(prod_lag)]
+                          )
+                        )             
+naics <- ddply(naics, .(naics), transform, prod_lag3 =
+                        c(NA, prod_lag2[-length(prod_lag2)]
+                          )
+                        ) 
+naics$prod_pc<-(naics$prod-naics$prod_lag)/naics$prod_lag
+naics$prod_pc_lag<-(naics$prod_lag-naics$prod_lag2)/naics$prod_lag2
+
+
+naics <- ddply(naics, .(naics), transform, cap_lag =
+                        c(NA, cap[-length(cap)]
+                          )
+                        )
+naics <- ddply(naics, .(naics), transform, cap_lag2 =
+                        c(NA, cap_lag[-length(cap_lag)]
+                          )
+                        )
+naics <- ddply(naics, .(naics), transform, cap_lag3 =
+                        c(NA, cap_lag2[-length(cap_lag2)]
+                          )
+                        )
+naics <- ddply(naics, .(naics), transform, invest_lag= 
+                        c(NA, invest[-length(invest)]
+                          )
+                        )
+naics <- ddply(naics, .(naics), transform, invest_lag2= 
+                        c(NA, invest_lag[-length(invest_lag)]
+                          )
+                        )
+
+naics <- ddply(naics, .(naics), transform, invest_lag3= 
+                        c(NA, invest_lag2[-length(invest_lag2)]
+                          )
+                        )
+##percentage change in investment 
+naics$invest_pc<-(naics$invest-naics$invest_lag)/naics$invest_lag
+naics$invest_pc_lag<-(naics$invest_lag-naics$invest_lag2)/naics$invest_lag2
+#employment lag
+naics <- ddply(naics, .(naics), transform, emp_lag= 
+                        c(NA, emp[-length(emp)]
+                          )
+                        )
+naics <- ddply(naics, .(naics), transform, plant_lag= 
+                        c(NA, plant[-length(plant)]
+                          )
+                        )
+naics <- ddply(naics, .(naics), transform, equip_lag= 
+                        c(NA, equip[-length(equip)]
+                          )
+                        )
+#equip percentage change
+naics$equip_pc<-(naics$equip-naics$equip_lag)/naics$equip_lag
+naics <- ddply(naics, .(naics), transform, equip_pc_lag= 
+                        c(NA, equip_pc[-length(equip_pc)]
+                          )
+                        )
+#emp percentage change
+
+naics$emp_pc<-(naics$emp-naics$emp_lag)/naics$emp_lag
+naics <- ddply(naics, .(naics), transform, emp_pc_lag= 
+                        c(NA, emp_pc[-length(emp_pc)]
+                          )
+                        )
+naics <- ddply(naics, .(naics), transform, emp_pc_lag2= 
+                        c(NA, emp_pc_lag[-length(emp_pc_lag)]
+                          )
+                        )                        
+naics <- ddply(naics, .(naics), transform, emp_pc_lag3= 
+                        c(NA, emp_pc_lag2[-length(emp_pc_lag2)]
+                          )
+                        ) 
+naics$cap_pc<-(naics$cap-naics$cap_lag)/naics$cap_lag
+naics <- ddply(naics, .(naics), transform, cap_pc_lag= 
+                        c(NA, cap_pc[-length(cap_pc)]
+                          )
+                        )
+naics <- ddply(naics, .(naics), transform, cap_pc_lag2= 
+                        c(NA, cap_pc_lag[-length(cap_pc_lag)]
+                          )
+                        )                        
+naics <- ddply(naics, .(naics), transform, cap_pc_lag3= 
+                        c(NA, cap_pc_lag2[-length(cap_pc_lag2)]
+                          )
+                        ) 
+
+naics2007<-subset(naics,year==2007,)
+naics2006<-subset(naics,year==2006,)
+write.csv(naics2007, file="naics2007.csv")
+```
+
+Load Antidumping cases file and remove redundant variables
+```{r}
+g<-read.csv("GAD1.csv")
+g<-g[c(-1,-2,-3,-4)]
+g$idate<-as.Date(g$idate,"%m/%d/%Y")
+g$year<-format(g$idate, "%Y")
+g$year<-as.numeric(g$year)
+g2007<-g[which(g$idate>="2007-01-01" & g$idate<="2007-12-31"),]
+g2008.5<-g[which(g$idate>="2008-01-01" & g$idate<="2008-06-30"),]
+g27<-g[which(g$idate>="2002-01-01" & g$idate<="2007-12-31"),]
+write.csv(g27, "g27.csv")
+
+```
+
+Load industry-level concentration ratio file of 2007
+```{r}
+c2007<-read.csv("ECN2007.csv")
+#remove redundant row and variables 
+c2007<-c2007[-1,]
+c2007<-c2007[c(-1,-2,-3,-6)]
+#clean redundant rows
+c2<-c2007[which(c2007$CCORCPPCT==100|c2007$VSHERFI!="X"),]
+c21<-subset(c2,c2$VSHERFI=="X",)
+c22<-subset(c2,c2$VSHERFI!="X",)
+c3<-merge(c21,c22, by="NAICS.id")
+c2007<-c3[c(-3,-4,-7,-8,-9,-10,-12,-13,-14)]
+library(data.table)
+#rename variables, esp the indentifier, in accordance with naic
+setnames(c2007, old=colnames(c2007), new=c("naics","naicslab","comnum","vship","year","hh"))
+c2007$hh<-as.numeric(c2007$hh)
+```
+
+
+Load industry-level concentration ratio file of 2002
+```{r}
+c2002<-read.csv("ECN2002.csv")
+#remove redundant row and variables 
+c2002<-c2002[-1,]
+c2002<-c2002[c(-1,-2,-3,-6)]
+#clean redundant rows
+c2<-c2002[which(c2002$CCOVAPCT==100|c2002$VAHERFI!="X"),]
+c21<-subset(c2,c2$VAHERFI=="X",)
+c22<-subset(c2,c2$VAHERFI!="X",)
+c3<-merge(c21,c22, by="NAICS.id")
+c2002<-c3[c(-3,-4,-7,-8,-9,-10,-12,-13,-14)]
+library(data.table)
+#rename variables, esp the indentifier, in accordance with naic
+setnames(c2002, old=colnames(c2002), new=c("naics","naicslab2","comnum2","vship2","year2","hh2"))
+c2002$hh2<-as.numeric(c2002$hh2)
+c2002$comnum2<-as.numeric(c2002$comnum2)
+c02<-subset(c2002, , select=c("naics","comnum2","year2","hh2"))
+```
+
+
+
+Now merge firm concentration database with industry characteristics
+```{r}
+library("concordance")
+nm2007<-merge(c2007,naics2007,by="naics")
+nm2007<-nm2007[c(-2)]
+#nm represents "naics merged"
+nm2007[colnames(nm2007)]<-lapply(nm2007, function(x) as.numeric(as.character(x)))
+ttb<-c("283539", "382490", "292249", "731700", "730619", "730630", "730650", "401120", "401161", "401162", "401163", "401169", "401192", "401193", "401194", "730661", "630533", "732620", "282010", "481190", "370310", "481159", "482010", "482340", "850519", "392062", "280511")
+```
+
+Concord HS3 with NAICS
+```{r}
+ttb07<-concord(ttb, "hs3", "naics")
+nm2007$t<-rep(NA, length(nm2007$naics))
+for (i in 1:length(nm2007$naics)) {
+ nm2007$t[i]<- nm2007$naics[i] %in% ttb07
+}
+nm2007$t<-as.numeric(nm2007$t)
+nm2007<-merge(nm2007, c02, by="naics")
+nm2007$naics5dig<-substr(nm2007$naics, 1, 5)
+```
+
+Now get product differentiation. There is a complexity here. The package Kim and Zhu wrote have mutiple options, depending on whther I concord through SITC or which origin code I use. To be safe, I will generate mutiple sigma and see which one works the best. Sigma1 is SITC=F and origin code is long (six-digit). Sigma2 is SITC=T and origin code is long. Sigma3 is SITC=F and origin code is short. Sigma4 is SITC=T and origin code is short.  
+```{r}
+##sigma1
+sigma1<-rep(NA,length(nm2007$naics))
+for (i in 1:length(nm2007$naics)) {
+  sigma1[i]<-sigma(nm2007$naics[i], "naics", country="USA", use_SITC=FALSE, give_avg=TRUE)
+}
+nm2007$sigma1<-sigma1
+##sigma2
+sigma2<-rep(NA,length(nm2007$naics))
+for (i in 1:length(nm2007$naics)) {
+  sigma2[i]<-sigma(nm2007$naics[i], "naics", country="USA", use_SITC=TRUE, give_avg=TRUE)
+}
+nm2007$sigma2<-sigma2
+##sigma3
+sigma3<-rep(NA,length(nm2007$naics5dig))
+for (i in 1:length(nm2007$naics5dig)) {
+  sigma3[i]<-sigma(nm2007$naics5dig[i], "naics", country="USA", use_SITC=FALSE, give_avg=TRUE)
+}
+nm2007$sigma3<-sigma3
+##sigma4
+sigma4<-rep(NA,length(nm2007$naics5dig))
+for (i in 1:length(nm2007$naics5dig)) {
+  sigma4[i]<-sigma(nm2007$naics5dig[i], "naics", country="USA", use_SITC=TRUE, give_avg=TRUE)
+}
+nm2007$sigma4<-sigma4
+nm2007$sigma1<-as.numeric(sigma1)
+nm2007$sigma2<-as.numeric(sigma2)
+nm2007$sigma3<-as.numeric(sigma3)
+nm2007$sigma4<-as.numeric(sigma4)
+write.csv(nm2007,'nm2007.csv')
+```
+
+Data Prepartion for tests
+```{r}
+library(stargazer)
+nm2007$hh<-as.numeric(nm2007$hh)
+nm2007$linvest_lag<-log(nm2007$invest_lag)
+nm2007$lcap_lag<-log(nm2007$cap_lag)
+nm2007$lprod_lag<-log(nm2007$prod_lag)
+nm2007$pen5_lag<-as.numeric(nm2007$pen5_lag*100)
+nm2007$lpen5_lag<-log(nm2007$pen5_lag)
+```
+
+Models
+```{r}
+#Regress capital on different measures of capital
+
+attach(nm2007)
+
+#The sunk cost argument
+
+m1<-glm(t~log(equip_lag), family=binomial())
+m2<-glm(t~log(equip_lag)+log(hh2)+prod_pc_lag+pen5_lag+emp_lag+sigma4+prod_lag, family=binomial())
+m3<-glm(t~log(plant_lag)+log(hh2)+prod_pc_lag+pen5_lag+emp_lag+sigma4+prod_lag, family=binomial())
+
+
+stargazer(m1, m2, m3, type="text", title="Regression Results A", dep.var.labels=c("AD Case Filed"), covariate.labels=c("Equipment","Plant", "Market Concentration", "Productivity Change","Import Penetration","Employment","Product Differentiation","Productivity"),omit.stat=c("LL","ser","f"),single.row=FALSE, notes.label="All covariates are lagged",no.space=TRUE)
+```
+
+```{r}
+#The Export Argument 
+m6<-glm(t~x_pc+log(equip_lag)+log(hh2)+pen5_lag2+sigma4+prod_pc_lag+emp_lag, family=binomial())
+m7<-glm(t~x_pc_lag+log(equip_lag)+log(hh2)+pen5_lag2+sigma4+prod_pc_lag+emp_lag, family=binomial())
+m8<-glm(t~x_pc_lag2+log(equip_lag)+log(hh2)+pen5_lag2+sigma4+prod_pc_lag+emp_lag, family=binomial())
+m9<-glm(t~x_pc_lag3+log(equip_lag)+log(hh2)+pen5_lag2+sigma4+prod_pc_lag+emp_lag, family=binomial())
+
+stargazer(m6, m7, m8, m9, type="text", title="Regression Results B", dep.var.labels=c("AD Case Filed in 2007"), covariate.labels=c("Export Change in 2007","Export Change in 2006", "Export Change in 2005", "Export Change in 2004", "Equipment","Concentration","Import Penetration","Product Differentiation","Productivity Change","Employment"),omit.stat=c("LL","ser","f"),single.row=FALSE, notes.label="All covariates are lagged",no.space=TRUE)
+
+m10<-glm(t~emp_pc+log(equip_lag)+log(hh2)+pen5_lag2+sigma4+prod_pc_lag+emp_lag, family=binomial())
+m11<-glm(t~emp_pc_lag+log(equip_lag)+log(hh2)+pen5_lag2+sigma4+prod_pc_lag+emp_lag, family=binomial())
+m12<-glm(t~emp_pc_lag2+log(equip_lag)+log(hh2)+pen5_lag2+sigma4+prod_pc_lag+emp_lag, family=binomial())
+m13<-glm(t~emp_pc_lag3+log(equip_lag)+log(hh2)+pen5_lag2+sigma4+prod_pc_lag+emp_lag, family=binomial())
+
+stargazer(m10, m11, m12, m13, type="text", title="Regression Results C", dep.var.labels=c("AD Case Filed in 2007"), covariate.labels=c("Employment Change in 2007","Employment Change in 2006", "Employment Change in 2005", "Employment Change in 2004", "Equipment","Concentration","Import Penetration","Product Differentiation","Productivity Change","Employment"),omit.stat=c("LL","ser","f"),single.row=FALSE, notes.label="All covariates are lagged",no.space=TRUE)
+
+
+mp1<-glm(t~pen5_lag+log(equip_lag)+log(hh2)+sigma4+prod_pc_lag+emp_lag, family=binomial())
+mp2<-glm(t~pen5_lag2+log(equip_lag)+log(hh2)+sigma4+prod_pc_lag+emp_lag, family=binomial())
+mp3<-glm(t~pen5_lag3+log(equip_lag)+log(hh2)+sigma4+prod_pc_lag+emp_lag, family=binomial())
+mp4<-glm(t~pen5_lag4+log(equip_lag)+log(hh2)+sigma4+prod_pc_lag+emp_lag, family=binomial())
+
+
+stargazer(mp1, mp2, mp3, mp4,  type="text", title="Regression Results D", dep.var.labels=c("AD Case Filed in 2007"), covariate.labels=c("Import Penetration 2006","Import Penetration 2005", "Import Penetration 2004", "Import Penetration 2003", "Equipment","Concentration","Product Differentiation","Productivity Change","Employment"),omit.stat=c("LL","ser","f"),single.row=FALSE, notes.label="All covariates are lagged",no.space=TRUE)
+
+a<-(g[which(g$year<=2002&g$year>=1995),"year"])
+
+length(a)
+```
+
+make a histogram of number of AD cases overlaid with US GDP growth 
+```{r}
+library("ggplot2")
+##Bar with Line 
+par(mar = c(5, 5, 5, 5))
+hist(g$year, 
+     main="Number of AD Cases and GDP Growth (US)", 
+     xlab="Year", 
+     ylab="Number of Cases",
+     border="black", 
+     xlim=c(1979,2015),
+     las=1, 
+     breaks=37)
+par(new = TRUE)
+plot(gdp$year,gdp$grw, type ="l", xaxt = "n", yaxt = "n",
+     ylab = "", xlab = "", colors="red",col = "red", lty = 2)
+axis(side = 4)
+mtext(text="US GDP Growth Rate (%)",side = 4, line = 3,xaxt = "n", yaxt = "n",
+     ylab = "", xlab = "", col="red")
+```
+
+
+
+
