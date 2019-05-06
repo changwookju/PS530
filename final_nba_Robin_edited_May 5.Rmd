@@ -1,0 +1,173 @@
+---
+title: "Final-PS530"
+author: "Robin Wang"
+date: "5/5/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(rvest)
+source("http://www.reuningscherer.net/s&ds230/Rfuncs/regJDRS.txt")
+library(corrplot)
+url <- "https://www.spotrac.com/nba/contracts/"
+webpage <- read_html(url)
+temp1 <- html_nodes(webpage,'tr td')
+temp1 <- html_text(temp1)
+temp2 <- html_nodes(webpage,'td a')
+name <- html_text(temp2)
+contract <- matrix(temp1, byrow = TRUE, ncol = 10)
+contract <- data.frame(contract)[1:448,] #eliminate excess rows
+names(contract) <- c("name","position", "team", "age", "length","salary","guaranteed", "gtd", "salavg","freeagent")
+#clean their names 
+player <- contract$name
+player <- gsub("[^0-9]", "", player)
+contract$contract_start <- substr(player, 1, 4)
+contract$contract_end <- substr(player, 5, 8)
+contract$name <- name
+#write a function to elimitate all symbols and turn values into numerics
+getnumber <- function(x){
+  as.numeric(gsub("[^0-9]","", x))
+}
+num_val <- c("age", "length","salary","guaranteed", "gtd", "salavg","freeagent","contract_start","contract_end")
+#using the function
+contract[,num_val] <- apply(contract[,num_val], 2, getnumber)
+```
+
+
+```{r}
+url <- "https://www.basketball-reference.com/leagues/NBA_2019_per_game.html"
+webpage <- read_html(url)
+temp1 <- html_nodes(webpage,'tr td')
+temp1 <- html_text(temp1)
+stats <- matrix(temp1, byrow = TRUE, ncol = 29)
+stats <- data.frame(stats)
+names(stats) <- c("name","team", "age",	"tm",	"G", "GS", "MP", "FG", "FGA",	"FG_pct",	"3P",	"3PA", "3P_pct",	"2P",	"2PA", "2P_pct",	"eFG_pct",	"FT",	"FTA",	"FT_pct",	"ORB",	"DRB",	"TRB",	"AST",	"STL",	"BLK",	"TOV",	"PF",	"PTS")
+myval <- c("age",	"G", "GS", "MP", "FG", "FGA",	"FG_pct",	"3P",	"3PA", "3P_pct",	"2P",	"2PA", "2P_pct",	"eFG_pct",	"FT",	"FTA",	"FT_pct",	"ORB",	"DRB",	"TRB",	"AST",	"STL",	"BLK",	"TOV",	"PF",	"PTS")
+stats1  <- apply(stats[myval], 2, as.numeric) #change data into numerics
+stats <- data.frame(stats$name, stats$tm, stats1)
+names(stats)[1:2] <- c("name","team")
+#combine duplicated players resulted from trading. 
+dunames <- as.vector(unique(stats[duplicated(stats$name), "name"]))
+temp <- stats[-which(stats$name %in% dunames),]
+for (i in 1:length(dunames)){
+    temp <- rbind(stats[max(which(stats$name==dunames[i])),], temp)
+}
+stats <- temp
+```
+
+
+
+
+```{r}
+nba <- merge(contract[,!names(contract) %in% c("team", "age")], stats, by.x ="name", by.y="name", all.x = FALSE, all.y = FALSE)
+nba$salary_mil<- nba$salary/10^6 #change the scale for salary for easy interpretation
+nba$salavg_mil <- nba$salavg/10^6
+# create a binary variable on whether the team is in the East or West conference
+east <- c("ORL", "IND", "BOS", "ATL", "BRK", "NYK", "PHI", "DET", "CLE", "CHI", "CHO", "WAS", "MIL", "TOR", "MIA")
+west <- unique(nba$team)[!unique(nba$team)%in%east]
+nba$ifwest <- 0
+nba$ifwest[which(nba$team%in%west)] <- 1 
+nba$isfree <- 0
+nba$isfree[which(nba$freeagent==2020)] <- 1 
+names(nba) <- tolower(names(nba))
+attach(nba)
+```
+
+
+
+```{r}
+summary(lm(x3p~isfree+salavg_mil+length+ifwest, data=nba))
+summary(lm(pts~ast*x3pa+fg_pct+tov+mp, data=nba))
+
+#make histogram for variables
+for (i in 14:40){
+  hist(nba[,i], main = names(nba)[i])
+}
+
+#keep the relevant variables, and name the new dataframe df1
+df1 <- nba[,c("name", "age", "team", "position", "length", "g", "gs","mp","fg", "fg_pct", "x3p", "x3p_pct", "x2p", "x2p_pct", "efg_pct", "ft", "ft_pct", "orb", "drb", "trb", "ast", "stl", "blk", "tov", "pf", "pts", "salavg_mil", "ifwest", "isfree")]
+
+#Creat Corrplot 
+mycorval <-  c("length", "g", "gs","mp","fg", "fg_pct", "x3p", "x3p_pct", "x2p", "x2p_pct", "efg_pct", "ft", "ft_pct", "orb", "drb", "trb", "ast", "stl", "blk", "tov", "pf", "pts", "salavg_mil", "ifwest", "isfree")
+cor1 <- round(cor(df1[,mycorval], use = "pairwise.complete.obs"), 2)
+maxloc <- which(cor1 == max(cor1[cor1<1]), arr.ind = TRUE)
+names(df1[mycorval])[maxloc[1,]]
+sigcorr <- cor.mtest(df1[,mycorval], use = "pairwise.complete.obs", conf.level = .95)
+corrplot.mixed(cor(df1[,mycorval], use = "pairwise.complete.obs"), lower.col="black", upper = "ellipse", tl.col = "black", number.cex=.7, order = "hclust", tl.pos = "lt", tl.cex=.7, p.mat = sigcorr$p, sig.level = .05)
+
+
+
+
+
+
+
+
+#temp <- c()
+#for (i in 1:length(unique(df1$team))){
+ #temp[i] <- sum(df1$pts[which(df1$team == unique(df1$team)[i])])
+ #score <- cbind(temp, unique(df1$team))
+#}
+
+
+```
+# Variable Description
+*name* - the player's name  
+*age* - the player's age  
+*team* - the player's team. There are 30 teams in the NBA.  
+*position* - the player's position: C, PF, SF, SG, PG. Generally, one would expect Cs and PFs have higher block and rebound stats while SF, SG and PG have more assits and higher shooting ability.  
+*length* - the length of the player's current contract. One would expect older player gets shorter contracts while stronger and younger players are awarded with longer contract. The longest contract is usually 5 to 6 years.  
+*g* - the number of game the player plays.  
+*gs* - the number of game the player plays as staring lineups. It is a good indication if the player have important roles on the team.  
+*mp* - minutes played per game  
+*fg* - number of field goals per game  
+*fg_pct* - field goal percentage  
+*x3p* - 3-point goals per game  
+*x3p_pct* - 3-point goal percentage  
+*x2p* - 2-point goals per game  
+*x2p_pct* - 2-point goal percentage  
+*efg_pct* - effective field goal percentage (adjusting for the fact that 3-point shots are harder to make but worth more than 2 points)  
+*ft* - number of free throws per game  
+*ft_pct* - free throw percentage  
+*orb* - offensive rebounds per game  
+*drb* - defensive rebounds per game  
+*trb* - total rebounds per game  
+*ast* - assists per game  
+*stl* - steals per game  
+*blk* - blocks per game  
+*tov* - turnovers per game  
+*pf* - personal fouls per game  
+*pts* - total points per game  
+*salavg_mil* - average annual salary in millions  
+*salary_mil* - total value of contract in millions. If a player has a multi-year contract, this would be the total value of the contract over the years.  
+*ifwest* - if the player's team is in the West Conference. There are two conferences in the NBA, the East Confenrence and the West Conference. Each team plays four games with the team in its own conference but plays only two games with teams in the other conference. The West Conference is generally believed to be more competitive than the East Conference.  
+*isfree* - if the player need renew contract in 2020.  
+
+
+
+3)
+- t-test
+- correlation
+- bootstrap CI for correlation
+
+"there are strong correlations between these measures. because if a player is good at one thing, he tends to be good at other things as well"
+
+# 5. Analysis
+
+: determinants of NBA players' average salary (salavg_mil)
+: determinants of NBA players' average score (pts)
+
+"the variable contract_end could use to measure the careerist incentive of players. Players whose contracts end in 2019 or 2020 should try to score more or shoot more accurately than those who do not need to worry about resigning contract in the short time."
+
+4) Permutation Test [HW5]
+
+
+5) Multiple Regression (backwards stepwise regression; GLM) [HW8] + residual plots [HW8]
+- Interaction effect between number of assists and three-pointer attempts on average point per game, in explaining what? (DV needed)
+
+backwards stepwise regression can help fitting models when we already have a battery of potential independent variables in mind. Simply put, it repeats regressing and deleting the most statistically insignificant term (one at a time; but in cases of interactions, we need to remove interactions before we remove any main (constitutive) term) until the model includes statistically significant terms only.
+
+# 6. Summary
